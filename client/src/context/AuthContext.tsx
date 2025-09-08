@@ -149,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = () => {
     localStorage.removeItem("token")
     localStorage.removeItem("user")
-    localStorage.removeItem("cart")
+    // Don't clear cart - let it persist in localStorage
     dispatch({ type: "LOGOUT" })
   }
 

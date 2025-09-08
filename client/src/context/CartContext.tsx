@@ -28,11 +28,37 @@ type CartAction =
   | { type: "CLEAR_CART" }
   | { type: "MERGE_CART"; payload: CartItem[] }
 
-const initialState: CartState = {
-  items: [],
-  totalItems: 0,
-  totalPrice: 0,
+// Initialize cart state from localStorage if available
+const getInitialCartState = (): CartState => {
+  try {
+    const savedCart = localStorage.getItem("cart")
+    if (savedCart) {
+      const cartItems = JSON.parse(savedCart)
+      const totalItems = cartItems.reduce(
+        (sum: number, item: CartItem) => sum + item.quantity,
+        0
+      )
+      const totalPrice = cartItems.reduce((sum: number, item: CartItem) => {
+        const price = item.item?.price || 0
+        return sum + price * item.quantity
+      }, 0)
+      return {
+        items: cartItems,
+        totalItems,
+        totalPrice,
+      }
+    }
+  } catch (error) {
+    console.error("Error loading initial cart state:", error)
+  }
+  return {
+    items: [],
+    totalItems: 0,
+    totalPrice: 0,
+  }
 }
+
+const initialState: CartState = getInitialCartState()
 
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   let newItems: CartItem[]
@@ -41,7 +67,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case "LOAD_CART":
       newItems = action.payload
       break
-    case "ADD_ITEM":
+    case "ADD_ITEM": {
       const existingItem = state.items.find(
         (item) => item.itemId === action.payload.itemId
       )
@@ -55,6 +81,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         newItems = [...state.items, action.payload]
       }
       break
+    }
     case "REMOVE_ITEM":
       newItems = state.items.filter((item) => item.itemId !== action.payload)
       break
@@ -70,22 +97,28 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case "CLEAR_CART":
       newItems = []
       break
-    case "MERGE_CART":
+    case "MERGE_CART": {
       // Merge server cart with local cart
       const localCart = state.items
       const serverCart = action.payload
 
-      // Create a map of server cart items
-      const serverCartMap = new Map(
-        serverCart.map((item) => [item.itemId, item])
-      )
+      // If server cart is empty, keep local cart
+      if (serverCart.length === 0) {
+        newItems = localCart
+      } else {
+        // Create a map of server cart items
+        const serverCartMap = new Map(
+          serverCart.map((item) => [item.itemId, item])
+        )
 
-      // Merge: server items take precedence, add local items not in server
-      newItems = [
-        ...serverCart,
-        ...localCart.filter((item) => !serverCartMap.has(item.itemId)),
-      ]
+        // Merge: server items take precedence, add local items not in server
+        newItems = [
+          ...serverCart,
+          ...localCart.filter((item) => !serverCartMap.has(item.itemId)),
+        ]
+      }
       break
+    }
     default:
       newItems = state.items
   }
@@ -127,18 +160,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [state, dispatch] = useReducer(cartReducer, initialState)
 
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem("cart")
-    if (savedCart) {
-      try {
-        const cartItems = JSON.parse(savedCart)
-        dispatch({ type: "LOAD_CART", payload: cartItems })
-      } catch (error) {
-        console.error("Error loading cart from localStorage:", error)
-      }
-    }
-  }, [])
+  // Cart is now initialized from localStorage in the initial state
+  // No need for a separate useEffect to load it
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
