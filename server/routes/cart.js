@@ -70,7 +70,7 @@ router.delete('/remove/:itemId', authenticateToken, async (req, res) => {
     const { itemId } = req.params
 
     const user = await User.findById(req.user._id)
-    user.cart = user.cart.filter(item => item.itemId !== parseInt(itemId))
+    user.cart = user.cart.filter(item => item.itemId !== itemId)
     await user.save()
 
     res.json({ message: 'Item removed from cart', cart: user.cart })
