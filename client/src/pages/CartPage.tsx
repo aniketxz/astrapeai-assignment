@@ -1,18 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { useCart } from "../context/CartContext"
 import { useAuth } from "../context/AuthContext"
-import { itemsAPI, cartAPI } from "../services/api"
-
-interface CartItem {
-  itemId: number
-  quantity: number
-  item?: {
-    id: number
-    name: string
-    price: number
-    image: string
-  }
-}
+import { cartAPI } from "../services/api"
 
 const CartPage: React.FC = () => {
   const {
@@ -46,20 +35,51 @@ const CartPage: React.FC = () => {
     }
   }
 
-  const handleQuantityChange = async (itemId: number, newQuantity: number) => {
+  const handleQuantityChange = async (itemId: string, newQuantity: number) => {
+    const existsLocally = items.some((i) => i.itemId === itemId)
+
     if (isAuthenticated) {
       try {
-        await cartAPI.updateCartItem(itemId, newQuantity)
+        if (newQuantity <= 0) {
+          await cartAPI.removeFromCart(itemId)
+          removeFromCart(itemId)
+          return
+        }
+
+        // Avoid 404 by choosing proper endpoint based on local presence
+        if (!existsLocally) {
+          await cartAPI.addToCart(itemId, newQuantity)
+        } else {
+          await cartAPI.updateCartItem(itemId, newQuantity)
+        }
         updateQuantity(itemId, newQuantity)
-      } catch (error) {
+      } catch (error: any) {
+        const status = error?.response?.status
+        if (newQuantity > 0 && status === 404) {
+          try {
+            await cartAPI.addToCart(itemId, newQuantity)
+            updateQuantity(itemId, newQuantity)
+            return
+          } catch (_) {}
+        }
+        // Fallback local state to keep UI responsive
+        if (newQuantity <= 0) {
+          removeFromCart(itemId)
+        } else {
+          updateQuantity(itemId, newQuantity)
+        }
         console.error("Error updating cart item:", error)
       }
     } else {
-      updateQuantity(itemId, newQuantity)
+      if (newQuantity <= 0) {
+        removeFromCart(itemId)
+      } else {
+        updateQuantity(itemId, newQuantity)
+      }
     }
   }
 
-  const handleRemoveItem = async (itemId: number) => {
+  const handleRemoveItem = async (itemId: string) => {
     if (isAuthenticated) {
       try {
         await cartAPI.removeFromCart(itemId)

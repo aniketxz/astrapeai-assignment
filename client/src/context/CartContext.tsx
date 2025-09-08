@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from "react"
 
 interface CartItem {
-  itemId: number
+  itemId: string
   quantity: number
   item?: {
     id: number
@@ -21,10 +21,10 @@ type CartAction =
   | { type: "LOAD_CART"; payload: CartItem[] }
   | {
       type: "ADD_ITEM"
-      payload: { itemId: number; quantity: number; item?: any }
+      payload: { itemId: string; quantity: number; item?: any }
     }
-  | { type: "REMOVE_ITEM"; payload: number }
-  | { type: "UPDATE_QUANTITY"; payload: { itemId: number; quantity: number } }
+  | { type: "REMOVE_ITEM"; payload: string }
+  | { type: "UPDATE_QUANTITY"; payload: { itemId: string; quantity: number } }
   | { type: "CLEAR_CART" }
   | { type: "MERGE_CART"; payload: CartItem[] }
 
@@ -86,13 +86,17 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       newItems = state.items.filter((item) => item.itemId !== action.payload)
       break
     case "UPDATE_QUANTITY":
-      newItems = state.items
-        .map((item) =>
-          item.itemId === action.payload.itemId
-            ? { ...item, quantity: action.payload.quantity }
-            : item
+      newItems = state.items.map((item) =>
+        item.itemId === action.payload.itemId
+          ? { ...item, quantity: action.payload.quantity }
+          : item
+      )
+      // Remove if quantity becomes 0 or less
+      if (action.payload.quantity <= 0) {
+        newItems = newItems.filter(
+          (item) => item.itemId !== action.payload.itemId
         )
-        .filter((item) => item.quantity > 0)
+      }
       break
     case "CLEAR_CART":
       newItems = []
@@ -137,9 +141,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 }
 
 interface CartContextType extends CartState {
-  addToCart: (itemId: number, quantity: number, item?: any) => void
-  removeFromCart: (itemId: number) => void
-  updateQuantity: (itemId: number, quantity: number) => void
+  addToCart: (itemId: string, quantity: number, item?: any) => void
+  removeFromCart: (itemId: string) => void
+  updateQuantity: (itemId: string, quantity: number) => void
   clearCart: () => void
   loadCart: (items: CartItem[]) => void
   mergeCart: (serverCart: CartItem[]) => void
@@ -168,15 +172,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("cart", JSON.stringify(state.items))
   }, [state.items])
 
-  const addToCart = (itemId: number, quantity: number, item?: any) => {
+  const addToCart = (itemId: string, quantity: number, item?: any) => {
     dispatch({ type: "ADD_ITEM", payload: { itemId, quantity, item } })
   }
 
-  const removeFromCart = (itemId: number) => {
+  const removeFromCart = (itemId: string) => {
     dispatch({ type: "REMOVE_ITEM", payload: itemId })
   }
 
-  const updateQuantity = (itemId: number, quantity: number) => {
+  const updateQuantity = (itemId: string, quantity: number) => {
     dispatch({ type: "UPDATE_QUANTITY", payload: { itemId, quantity } })
   }
 
